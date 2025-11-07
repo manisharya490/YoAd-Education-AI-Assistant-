@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  syntax-check:
+    name: Compile Python files (syntax check)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Compile all Python files
+        run: |
+          python -m compileall -q .
+
+      - name: List compiled files (for debugging)
+        run: |
+          find . -name "*.pyc" -maxdepth 4 | sed -n '1,200p'
