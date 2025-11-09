@@ -1,73 +1,100 @@
-# YoAd RAG System
 
-A Retrieval-Augmented Generation (RAG) system that connects a custom knowledge base with a Large Language Model to create an intelligent Q&A interface.
+# YoAd: Voice-Enabled RAG AI Assistant (Web & CLI)
+
+YoAd is a Retrieval-Augmented Generation (RAG) assistant with:
+- **Web UI** (Flask, browser voice input/output)
+- **Voice-enabled CLI** (speech recognition & TTS)
+- **Hybrid LLM**: Local (Ollama/HF) + OpenAI fallback
+- **MCQ/Quiz Generation** for self-testing
+
+Ask questions, generate quizzes, or interact with your own documents—via browser or terminal!
+
 
 ## Project Structure
 
 ```
-jarvis/
 ├── data/               # Store your custom documents here
-├── ingestion.py       # Data ingestion pipeline
-├── jarvis_app.py      # Main RAG application
-├── requirements.txt   # Project dependencies
-└── .env              # Environment variables
+├── ingestion.py        # Data ingestion pipeline
+├── jarvis_app.py       # Main RAG application (CLI)
+├── jarvis_app_voice.py # Voice-enabled CLI assistant
+├── web_ui.py           # Flask web server (browser UI)
+├── requirements.txt    # Project dependencies
+├── .env                # Environment variables
+├── static/             # Web UI static files (css/js)
+├── templates/          # Web UI HTML templates
 ```
 
-## Setup Instructions
 
-1. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+## Setup & Usage
 
-2. Install Ollama and download the Llama2 model:
-```bash
-# Follow Ollama installation instructions from: https://ollama.ai/
-ollama pull llama2
-```
+1. **Install dependencies:**
+	```bash
+	pip install -r requirements.txt
+	```
 
-3. Configure environment variables:
-- Copy `.env.example` to `.env`
-- Add your Pinecone API key and environment details
+2. **(Optional) Install Ollama & Llama2 for local LLM:**
+	```bash
+	# https://ollama.ai/ (for local LLM)
+	ollama pull llama2
+	```
 
-4. Prepare your data:
-- Place your custom documents in the `data/` directory
-- Supported formats: PDF, TXT, MD, etc.
+3. **Configure environment variables:**
+	- Copy `.env.example` to `.env` (or create `.env`)
+	- Add your Pinecone API key, environment, and (optional) OpenAI API key:
+	  ```env
+	  PINECONE_API_KEY=...
+	  PINECONE_ENVIRONMENT=...
+	  EXTERNAL_LLM_PROVIDER=openai
+	  OPENAI_API_KEY=sk-...
+	  EXTERNAL_MODE=kb_then_external
+	  ```
 
-5. Run the ingestion pipeline:
-```bash
-python ingestion.py
-```
+4. **Prepare your data:**
+	- Place PDFs, DOCX, PPTX, TXT, or MD files in `data/`
 
-6. Start the YoAd RAG system:
-```bash
-python jarvis_app.py
-```
+5. **Ingest your data:**
+	```bash
+	python ingestion.py
+	```
 
-## System Components
+6. **Run the Web App (recommended):**
+	```bash
+	python web_ui.py
+	# Visit http://127.0.0.1:5000 in your browser
+	```
 
-### Data Ingestion Pipeline (`ingestion.py`)
-- Document loading from local directory
-- Text splitting with RecursiveCharacterTextSplitter
-- Embedding generation using BAAI/bge-small-en-v1.5
-- Vector storage in Pinecone
+7. **Or use the Voice CLI:**
+	```bash
+	python jarvis_app_voice.py
+	```
 
-### RAG Application (`jarvis_app.py`)
-- Local LLM integration using Ollama (Llama2)
-- Custom RAG prompt template
-- Pinecone retriever with top-3 similarity search
-- Interactive CLI interface
 
-## Testing
+## Features
 
-Test the system with different types of queries:
-1. Invention-specific questions (should be answered from your documents)
-2. General knowledge questions (should indicate information not in knowledge base)
-3. Questions requiring information synthesis from multiple chunks
+- **Web UI**: Modern browser interface, voice input/output, dark mode
+- **Voice CLI**: Speak or type questions, get spoken answers
+- **Hybrid LLM**: Uses local Ollama (if available), falls back to OpenAI (if configured)
+- **MCQ/Quiz Generation**: Ask for "MCQs on X" or "Quiz me on Y"—get instant multiple-choice questions
+- **Retrieval-Augmented**: Answers use your own documents (PDF, DOCX, PPTX, TXT, MD)
+- **OpenAI fallback**: If your KB doesn't have the answer, OpenAI (GPT-3.5/4) is used (if API key set)
+
+
+## Example Queries
+
+- "Give 10 MCQs to check my knowledge on machine learning"
+- "Quiz me on Deep Learning"
+- "What is backpropagation?"
+- "Summarize the main points of this document"
+
 
 ## Notes
 
-- The system uses the BAAI/bge-small-en-v1.5 embedding model (384 dimensions)
-- Chunks are created with 1000-character size and 200-character overlap
-- The retriever fetches the top 3 most relevant document chunks
-- Local LLM deployment using Ollama for privacy and cost-effectiveness
+- Embeddings: Uses `sentence-transformers/all-MiniLM-L6-v2` by default
+- Chunks: 1000 characters, 200 overlap
+- Retrieval: Top 5 relevant chunks from Pinecone
+- LLM: Ollama (Llama2) if available, else HuggingFace, else OpenAI (if configured)
+- Web UI: Flask, browser voice, TTS, mobile-friendly
+
+---
+
+**GitHub:** [YoAd-Education-AI-Assistant-](https://github.com/manisharya490/YoAd-Education-AI-Assistant-)
