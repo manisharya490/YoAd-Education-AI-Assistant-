@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>YoAd — Voice & Text Assistant</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>YoAd</h1>
+        <p class="tag">Voice-enabled RAG assistant</p>
+      </header>
+
+      <main>
+        <div class="controls">
+          <textarea id="query" placeholder="Type your question here or use voice..." rows="3"></textarea>
+          <div class="buttons">
+            <button id="btn-speak">🎤 Start Voice</button>
+            <button id="btn-send">Send</button>
+          </div>
+        </div>
+
+        <section class="response">
+          <h2>Answer</h2>
+          <div id="answer">(waiting for input)</div>
+        </section>
+      </main>
+
+      <footer>
+        <small>YoAd — local + external model hybrid. Browser TTS used for playback.</small>
+      </footer>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+  </body>
+  </html>

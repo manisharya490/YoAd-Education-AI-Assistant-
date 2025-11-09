@@ -2,11 +2,12 @@ import os
 import textwrap
 from typing import List, Dict
 from dotenv import load_dotenv
-from langchain_community.llms.huggingface_pipeline import HuggingFacePipeline
-from transformers import AutoTokenizer, AutoModelForCausalLM, AutoModel, pipeline
+from langchain_community.llms import OpenAI
+from transformers import AutoTokenizer, AutoModelForCausalLM, AutoModel
 import torch
 import speech_recognition as sr
 import pyttsx3
+import openai
 try:
     import ollama
     HAS_OLLAMA = True
@@ -67,9 +68,13 @@ if not PINECONE_API_KEY:
 pc = Pinecone(api_key=PINECONE_API_KEY)
 INDEX_NAME = os.getenv("PINECONE_INDEX", "yoad-index")
 
+# External LLM config (optional)
+EXTERNAL_LLM_PROVIDER = os.getenv("EXTERNAL_LLM_PROVIDER")
+EXTERNAL_MODE = os.getenv("EXTERNAL_MODE", "kb_then_external")
+
 
 class YoAdRAG:
-    def __init__(self, index_name: str = INDEX_NAME, top_k: int = 3):
+    def __init__(self, index_name: str = INDEX_NAME, top_k: int = 5):
         print("Initializing YoAd RAG system...")
         # Initialize text-to-speech
         self.engine = pyttsx3.init()
@@ -110,13 +115,47 @@ class YoAdRAG:
         # Prompt template instructing the LLM to synthesize an answer from retrieved context
         # It asks for a concise, directly useful answer and a short sources section.
         self.prompt_template = textwrap.dedent("""
-        You are YoAd, a helpful, precise, and polite AI assistant. Using ONLY the information in the provided CONTEXT, synthesize a concise, factual answer to the user's question.
+        You are YoAd, a polite, precise, and academically oriented AI tutor.
+Your primary goal is to help the user understand, compare, and test academic concepts clearly and effectively.
 
-        - If the question is comparative (e.g. differences between libraries), provide a short, structured comparison.
-        - Keep the answer concise (approx. 2-6 sentences) and avoid filler.
-        - After the answer include a short 'Sources:' section listing the chunk numbers you used in the form [1], [2], ...
-        - If the context does NOT contain the required information, output EXACTLY the single line:
-          The required information is not available in the internal knowledge base.
+Response Guidelines
+
+Concept Explanations
+
+Explain concepts in simple, beginner-friendly language.
+
+Use short paragraphs and clear examples to illustrate key ideas.
+
+When helpful, include step-by-step reasoning or analogies for better understanding.
+
+Comparative Questions
+
+Present differences or similarities in a structured format (e.g., table or bullet points).
+
+Focus on clarity, core distinctions, and practical relevance.
+
+Multiple Choice Questions (MCQs)
+
+Generate 3–5 well-balanced questions based on the provided context.
+
+Each question must include 4 options (a, b, c, d).
+
+Clearly mark the correct answer after each question.
+
+Include a mix of easy, moderate, and challenging questions that test understanding rather than memorization.
+
+General Instructions
+
+Be concise, factual, and academically neutral.
+
+Include examples or short scenarios to demonstrate understanding.
+
+At the end of every response, include:
+Sources: [1] [2] ... (listing the chunk numbers used).
+
+If the context does NOT contain relevant information, respond exactly with:
+
+“The required information is not available in the internal knowledge base.”
 
         CONTEXT:
         {context}
@@ -125,7 +164,7 @@ class YoAdRAG:
 
         OUTPUT FORMAT (must follow):
         Answer:
-        <concise synthesized answer>
+        <your response following the guidelines above>
 
         Sources:
         [1] [2] ...
@@ -161,13 +200,98 @@ class YoAdRAG:
         parts = txt.split('\n\n')
         return parts[0].strip() if parts else txt.strip()
 
+    def _call_external(self, prompt_text: str) -> str:
+        """Call external LLM provider (supports OpenAI and OpenRouter) and return text or None on failure."""
+        provider = os.getenv("EXTERNAL_LLM_PROVIDER", "").lower()
+        if not provider:
+            return None
+            
+        try:
+            import openai
+        except Exception as e:
+            print(f"OpenAI python package not installed: {e}")
+            return None
+            
+        if provider == "openai":
+            key = os.getenv("OPENAI_API_KEY")
+            if not key:
+                print("External LLM configured as OpenAI but OPENAI_API_KEY is missing in .env")
+                return None
+            try:
+                openai.api_key = key
+                model = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
+                resp = openai.ChatCompletion.create(
+                    model=model,
+                    messages=[{"role": "user", "content": prompt_text}],
+                    max_tokens=int(os.getenv("OPENAI_MAX_TOKENS", "512")),
+                    temperature=float(os.getenv("OPENAI_TEMPERATURE", "0.2")),
+                )
+                text = resp["choices"][0]["message"]["content"].strip()
+                return text
+            except Exception as e:
+                print(f"External LLM (OpenAI) error: {e}")
+                return None
+                
+        elif provider == "openrouter":
+            api_key = os.getenv("OPENROUTER_API_KEY")
+            model = os.getenv("OPENROUTER_MODEL", "openai/gpt-3.5-turbo")
+            
+            if not api_key:
+                print("OpenRouter API key is missing in .env")
+                return None
+                
+            try:
+                openai.api_key = api_key
+                openai.api_base = os.getenv("OPENROUTER_API_BASE", "https://openrouter.ai/api/v1")
+                
+                # Required for OpenRouter
+                headers = {
+                    "HTTP-Referer": "http://localhost:3000",  # Your site's URL
+                    "X-Title": "YoAd Education AI Assistant"  # Your app's name
+                }
+                
+                resp = openai.ChatCompletion.create(
+                    model=model,
+                    messages=[{"role": "user", "content": prompt_text}],
+                    headers=headers,
+                    max_tokens=int(os.getenv("OPENROUTER_MAX_TOKENS", "512")),
+                    temperature=float(os.getenv("OPENROUTER_TEMPERATURE", "0.2")),
+                )
+                text = resp["choices"][0]["message"]["content"].strip()
+                return text
+            except Exception as e:
+                print(f"External LLM (OpenRouter) error: {e}")
+                return None
+                
+        else:
+            print(f"External LLM provider '{provider}' is not supported. Use 'openai' or 'openrouter'.")
+            return None
+
     def listen(self) -> str:
         """Listen for voice input and return the recognized text."""
         with sr.Microphone() as source:
-            print("\nListening... (speak now)")
+            print("\nAdjusting for ambient noise... Please wait...")
+            # Calibrate for ambient noise (longer duration helps in noisy environments)
+            try:
+                self.recognizer.dynamic_energy_threshold = True
+                # Use a slightly longer ambient calibration when needed
+                self.recognizer.adjust_for_ambient_noise(source, duration=1.5)
+            except Exception:
+                # If calibration fails, continue with defaults
+                pass
+
+            # Tweak thresholds to avoid early cutoff
+            # Pause threshold: seconds of silence that will register as end of phrase
+            self.recognizer.pause_threshold = 0.9
+            # How long to wait for a phrase to start (None = wait indefinitely)
+            listen_timeout = None
+            # Do not forcibly cut off phrases unless very long; keep phrase_time_limit None
+            phrase_time_limit = None
+
+            print("Listening... (speak now)")
             self.speak("I'm listening...")
             try:
-                audio = self.recognizer.listen(source, timeout=5)
+                audio = self.recognizer.listen(source, timeout=listen_timeout, phrase_time_limit=phrase_time_limit)
                 print("Processing speech...")
                 text = self.recognizer.recognize_google(audio)
                 print(f"\nYou said: {text}")
@@ -202,7 +326,7 @@ class YoAdRAG:
 
         return matches
 
-    def answer(self, question: str) -> str:
+    def answer(self, question: str, speak: bool = True) -> str:
         # Retrieve context
         matches = self.retrieve(question)
 
@@ -217,49 +341,106 @@ class YoAdRAG:
 
         prompt = self.prompt_template.format(context=context, question=question)
 
+        # External LLM decision logic
+        ext_provider = os.getenv("EXTERNAL_LLM_PROVIDER")
+        ext_mode = os.getenv("EXTERNAL_MODE", "kb_then_external")
+
+        # If external provider is configured, decide based on mode
+        if ext_provider:
+            mode = ext_mode.lower()
+            # kb_then_external: only call external when context is empty
+            if mode == "kb_then_external" and not context.strip():
+                ext_resp = self._call_external(f"QUESTION: {question}")
+                if ext_resp:
+                    if speak:
+                        self.speak(ext_resp)
+                    return ext_resp
+            # combine_then_external or external_always: call external with the full prompt
+            elif mode in ("combine_then_external", "external_always"):
+                ext_prompt = prompt
+                ext_resp = self._call_external(ext_prompt)
+                if ext_resp:
+                    if speak:
+                        self.speak(ext_resp)
+                    return ext_resp
+
         # If context is empty, short-circuit to ensure LLM returns the required message
         if not context.strip():
             answer = "The required information is not available in the internal knowledge base."
-            self.speak(answer)
+            if speak:
+                self.speak(answer)
             return answer
 
         # If Ollama is available, call it; otherwise use HF pipeline
         if self.use_ollama:
             try:
-                gen = ollama.generate(model=self.ollama_model, prompt=prompt)
+                # Try to use CPU if CUDA fails
+                try:
+                    gen = ollama.generate(model=self.ollama_model, prompt=prompt)
+                except Exception as cuda_error:
+                    if "CUDA" in str(cuda_error):
+                        print("CUDA error detected, falling back to CPU...")
+                        os.environ["CUDA_VISIBLE_DEVICES"] = ""  # Disable CUDA
+                        gen = ollama.generate(model=self.ollama_model, prompt=prompt)
+                    else:
+                        raise cuda_error
+                
                 # Ollama's response text can be in .response or str(gen)
                 text = getattr(gen, "response", None)
                 if text is None:
                     text = str(gen)
                 answer_text = self._extract_answer_text(text)
                 # Speak only the concise answer, print full output (including sources)
-                if answer_text:
-                    self.speak(answer_text)
-                else:
-                    self.speak(text)
+                if speak:
+                    # If speaking is enabled, speak only the concise answer when available
+                    if answer_text:
+                        self.speak(answer_text)
+                    else:
+                        self.speak(text)
                 return text
             except Exception as e:
                 print(f"Ollama error: {e}")
-                error_msg = "I encountered an error while generating the answer with Ollama."
-                self.speak(error_msg)
-                return error_msg
+                print("Falling back to HuggingFace pipeline...")
+                self.use_ollama = False
+                # Initialize HF pipeline as fallback
+                try:
+                    model_id = "facebook/opt-125m"
+                    pipe = pipeline(
+                        "text-generation",
+                        model=model_id,
+                        max_new_tokens=256,
+                        temperature=0.7,
+                        top_p=0.95,
+                        repetition_penalty=1.15
+                    )
+                    self.llm = HuggingFacePipeline(pipeline=pipe)
+                    return self.answer(question, speak)  # Retry with HF pipeline
+                except Exception as hf_error:
+                    print(f"HuggingFace pipeline error: {hf_error}")
+                    error_msg = "I encountered an error. Please check if OpenAI is configured in .env for fallback."
+                    if speak:
+                        self.speak(error_msg)
+                    return error_msg
         else:
             try:
                 response = self.llm.predict(prompt)
                 if not response.strip():
                     error_msg = "I encountered an error while generating the answer."
-                    self.speak(error_msg)
+                    if speak:
+                        self.speak(error_msg)
                     return error_msg
                 answer_text = self._extract_answer_text(response)
-                if answer_text:
-                    self.speak(answer_text)
-                else:
-                    self.speak(response)
+                if speak:
+                    if answer_text:
+                        self.speak(answer_text)
+                    else:
+                        self.speak(response)
                 return response
             except Exception as e:
                 print(f"Language model error: {e}")
                 error_msg = "I encountered an error while generating the answer."
-                self.speak(error_msg)
+                if speak:
+                    self.speak(error_msg)
                 return error_msg
 
 
@@ -272,20 +453,30 @@ def main():
         if input_mode in ("exit", "quit"):
             print("Goodbye.")
             break
-        
+
         if input_mode == 'v':
+            # Voice mode: listen, then get model output but don't let answer() speak.
             q = yoad.listen()
             if not q:  # If speech recognition failed
                 continue
-        else:  # Default to text input
+            print("\nYoAd is thinking...")
+            ans = yoad.answer(q, speak=False)
+            # Extract only the concise 'Answer' portion (remove Sources)
+            display = yoad._extract_answer_text(ans)
+            print("\nYoAd:", display)
+            # Speak the concise answer
+            yoad.speak(display)
+        else:
+            # Text mode: get answer but do NOT speak it
             q = input("You: ").strip()
             if q.lower() in ("exit", "quit"):
                 print("Goodbye.")
                 break
-        
-        print("\nYoAd is thinking...")
-        ans = yoad.answer(q)
-        print("\nYoAd:", ans)
+            print("\nYoAd is thinking...")
+            ans = yoad.answer(q, speak=False)
+            # Print only the concise 'Answer' portion (omit Sources)
+            display = yoad._extract_answer_text(ans)
+            print("\nYoAd:", display)
 
 
 if __name__ == "__main__":

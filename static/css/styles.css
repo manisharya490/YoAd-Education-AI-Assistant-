@@ -1,0 +1,19 @@
+:root{
+  --bg:#0f1724;
+  --card:#0b1220;
+  --muted:#94a3b8;
+  --accent:#06b6d4;
+  --glass: rgba(255,255,255,0.03);
+}
+body{font-family:Inter,Segoe UI,Roboto,Arial;background:linear-gradient(180deg,#071124 0%,#081426 100%);color:#e6eef6;margin:0;padding:18px}
+.container{max-width:900px;margin:18px auto;padding:22px;background:var(--card);border-radius:12px;box-shadow:0 8px 30px rgba(2,6,23,0.6)}
+header{display:flex;align-items:center;justify-content:space-between}
+header h1{margin:0;font-size:28px}
+.tag{color:var(--muted);margin:0}
+main{margin-top:18px}
+.controls textarea{width:100%;resize:vertical;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:var(--glass);color:inherit}
+.buttons{display:flex;gap:10px;margin-top:10px}
+button{background:linear-gradient(90deg,var(--accent),#0891b2);color:#042025;border:0;padding:10px 14px;border-radius:8px;cursor:pointer;font-weight:600}
+.response{margin-top:18px;padding:14px;border-radius:8px;background:rgba(255,255,255,0.02)}
+#answer{white-space:pre-wrap;color:#e6eef6}
+footer{margin-top:18px;color:var(--muted);font-size:13px}

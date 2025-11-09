@@ -2,10 +2,10 @@ langchain>=0.0.330
 langchain-community>=0.0.1
 python-dotenv>=1.0.0
 pinecone>=0.2.0
-sentence-transformers==2.2.2
-huggingface-hub==0.13.3
+sentence-transformers>=2.2.2
+huggingface-hub>=0.19.0
 torch>=2.1.0
-transformers>=4.35.0
+transformers>=4.35.0,<5.0.0
 tqdm>=4.66.1
 pyttsx3>=2.90
 SpeechRecognition>=3.10.0
