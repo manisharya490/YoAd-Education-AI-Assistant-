@@ -95,14 +95,13 @@ You can showcase the web UI and features here. To add a screenshot:
 2. Save it in the repo (e.g., in a `screenshots/` folder or upload via GitHub UI).
 3. Embed it in this section using Markdown:
 
-```markdown
-![YoAd Web UI Example](screenshots/mcq.png)
-```
 
-Example:
 
-![YoAd Web UI Example](screenshots/ml.png)
+### Example: ML Feature
+![ML Example](screenshots/ml.png)
 
+### Example: MCQ Generation
+![MCQ Example](screenshots/mcq.png)
 ---
 
 **GitHub:** [YoAd-Education-AI-Assistant-](https://github.com/manisharya490/YoAd-Education-AI-Assistant-)
