@@ -95,14 +95,6 @@ Ask questions, generate quizzes, or interact with your own documents—via brows
 
 ## Screenshots
 
-You can showcase the web UI and features here. To add a screenshot:
-
-1. Take a screenshot of the app (e.g., web UI, MCQ generation, voice controls).
-2. Save it in the repo (e.g., in a `screenshots/` folder or upload via GitHub UI).
-3. Embed it in this section using Markdown:
-
-
-
 ### Example: ML Feature
 ![ML Example](screenshots/ml.png)
 
