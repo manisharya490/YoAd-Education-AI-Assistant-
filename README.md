@@ -4,7 +4,7 @@
 
 ## Demo Video
 
-[Watch Demo Video on Google Drive](YOUR_GOOGLE_DRIVE_LINK)
+[Watch Demo Video on Google Drive](https://drive.google.com/file/d/1Kqvx2n6bQuUm3T8aCeLSDhtZut8h5mxm/view?usp=drive_link)
 
 YoAd is a Retrieval-Augmented Generation (RAG) assistant with:
 - **Web UI** (Flask, browser voice input/output)
