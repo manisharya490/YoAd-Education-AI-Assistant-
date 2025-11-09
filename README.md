@@ -1,5 +1,10 @@
 
+
 # YoAd: Voice-Enabled RAG AI Assistant (Web & CLI)
+
+## Demo Video
+
+[Watch Demo Video on Google Drive](YOUR_GOOGLE_DRIVE_LINK)
 
 YoAd is a Retrieval-Augmented Generation (RAG) assistant with:
 - **Web UI** (Flask, browser voice input/output)
