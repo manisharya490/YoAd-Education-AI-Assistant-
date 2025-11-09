@@ -87,13 +87,21 @@ Ask questions, generate quizzes, or interact with your own documents—via brows
 - "Summarize the main points of this document"
 
 
-## Notes
+## Screenshots
 
-- Embeddings: Uses `sentence-transformers/all-MiniLM-L6-v2` by default
-- Chunks: 1000 characters, 200 overlap
-- Retrieval: Top 5 relevant chunks from Pinecone
-- LLM: Ollama (Llama2) if available, else HuggingFace, else OpenAI (if configured)
-- Web UI: Flask, browser voice, TTS, mobile-friendly
+You can showcase the web UI and features here. To add a screenshot:
+
+1. Take a screenshot of the app (e.g., web UI, MCQ generation, voice controls).
+2. Save it in the repo (e.g., in a `screenshots/` folder or upload via GitHub UI).
+3. Embed it in this section using Markdown:
+
+```markdown
+![YoAd Web UI Example](screenshots/mcq.png)
+```
+
+Example:
+
+![YoAd Web UI Example](screenshots/ml.png)
 
 ---
 
