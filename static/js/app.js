@@ -2,7 +2,9 @@
 const queryEl = document.getElementById('query');
 const btnSend = document.getElementById('btn-send');
 const btnSpeak = document.getElementById('btn-speak');
+
 const answerEl = document.getElementById('answer');
+const readAloudEl = document.getElementById('read-aloud');
 
 let recognizing = false;
 let recognition = null;
@@ -59,8 +61,8 @@ async function sendQuery(q) {
     }
     answerEl.textContent = data.answer;
 
-    // Speak the answer using browser TTS
-    if ('speechSynthesis' in window) {
+    // Speak the answer using browser TTS if enabled
+    if (readAloudEl && readAloudEl.checked && 'speechSynthesis' in window) {
       const u = new SpeechSynthesisUtterance(data.answer);
       u.lang = 'en-US';
       window.speechSynthesis.cancel();

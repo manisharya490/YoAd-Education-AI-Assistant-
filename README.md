@@ -92,10 +92,6 @@ Ask questions, generate quizzes, or interact with your own documents—via brows
 - "Summarize the main points of this document"
 
 
-## Demo Video
-
-
-[Watch Demo Video on Google Drive](https://drive.google.com/file/d/1Kqvx2n6bQuUm3T8aCeLSDhtZut8h5mxm/view?usp=drive_link)
 
 ## Screenshots
 
@@ -112,6 +108,9 @@ You can showcase the web UI and features here. To add a screenshot:
 
 ### Example: MCQ Generation
 ![MCQ Example](screenshots/mcq.png)
+
+### Example: Difference Between Generation
+![MCQ Example](screenshots/difference.png)
 ---
 
 **GitHub:** [YoAd-Education-AI-Assistant-](https://github.com/manisharya490/YoAd-Education-AI-Assistant-)

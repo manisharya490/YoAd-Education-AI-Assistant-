@@ -115,60 +115,50 @@ class YoAdRAG:
         # Prompt template instructing the LLM to synthesize an answer from retrieved context
         # It asks for a concise, directly useful answer and a short sources section.
         self.prompt_template = textwrap.dedent("""
-        You are YoAd, a polite, precise, and academically oriented AI tutor.
+You are YoAd, a polite, precise, and academically oriented AI tutor.
 Your primary goal is to help the user understand, compare, and test academic concepts clearly and effectively.
 
 Response Guidelines
 
-Concept Explanations
+Concept Explanations:
+- Explain concepts in simple, beginner-friendly language.
+- Use short paragraphs and clear examples to illustrate key ideas.
+- When helpful, include step-by-step reasoning or analogies for better understanding.
 
-Explain concepts in simple, beginner-friendly language.
+Comparative Questions:
+- Present differences or similarities in a structured format (e.g., table or bullet points).
+- Focus on clarity, core distinctions, and practical relevance.
 
-Use short paragraphs and clear examples to illustrate key ideas.
+Multiple Choice Questions (MCQs):
+- Generate exactly 10 well-balanced multiple choice questions based on the provided context or topic.
+- Each question must be numbered from 1 to 10.
+- Each question must have 4 options (a, b, c, d).
+- After each question, clearly mark the correct answer (e.g., "Correct answer: b").
+- Do not stop after 1 question—always list all 10.
+- Include a mix of easy, moderate, and challenging questions that test understanding rather than memorization.
 
-When helpful, include step-by-step reasoning or analogies for better understanding.
-
-Comparative Questions
-
-Present differences or similarities in a structured format (e.g., table or bullet points).
-
-Focus on clarity, core distinctions, and practical relevance.
-
-Multiple Choice Questions (MCQs)
-
-Generate 3–5 well-balanced questions based on the provided context.
-
-Each question must include 4 options (a, b, c, d).
-
-Clearly mark the correct answer after each question.
-
-Include a mix of easy, moderate, and challenging questions that test understanding rather than memorization.
-
-General Instructions
-
-Be concise, factual, and academically neutral.
-
-Include examples or short scenarios to demonstrate understanding.
+General Instructions:
+- Be concise, factual, and academically neutral.
+- Include examples or short scenarios to demonstrate understanding.
 
 At the end of every response, include:
 Sources: [1] [2] ... (listing the chunk numbers used).
 
 If the context does NOT contain relevant information, respond exactly with:
-
 “The required information is not available in the internal knowledge base.”
 
-        CONTEXT:
-        {context}
+CONTEXT:
+{context}
 
-        QUESTION: {question}
+QUESTION: {question}
 
-        OUTPUT FORMAT (must follow):
-        Answer:
-        <your response following the guidelines above>
+OUTPUT FORMAT (must follow):
+Answer:
+<your response following the guidelines above>
 
-        Sources:
-        [1] [2] ...
-        """)
+Sources:
+[1] [2] ...
+""")
 
     def speak(self, text: str) -> None:
         """Speak the given text using text-to-speech."""
@@ -178,23 +168,25 @@ If the context does NOT contain relevant information, respond exactly with:
     def _extract_answer_text(self, llm_text: str) -> str:
         """Extract the 'Answer' section from the model output.
 
-        If the output follows the requested format (Answer: ... \n\nSources: ...)
-        this returns the answer text only. Otherwise returns the whole text.
+        For MCQ/quiz queries, return the full answer block after 'Answer:'.
+        For other queries, fallback to previous logic.
         """
         if not llm_text:
             return ""
-        # Normalize and search for markers
         txt = llm_text
-        # Try to find 'Answer:' and 'Sources:' markers
         lower = txt.lower()
         ans_idx = lower.find('answer:')
         src_idx = lower.find('\nsources:')
+        # If MCQ/quiz detected in the answer, return everything after 'Answer:'
         if ans_idx != -1:
-            start = ans_idx + len('answer:')
+            answer = txt[ans_idx + len('answer:'):]
+            # If 'Sources:' exists, cut at that point
             if src_idx != -1 and src_idx > ans_idx:
-                answer = txt[start:src_idx]
-            else:
-                answer = txt[start:]
+                answer = txt[ans_idx + len('answer:'):src_idx]
+            # If the answer contains at least 2 MCQ numbers, return as is
+            if any(x in answer.lower() for x in ["1.", "2.", "3.", "4.", "5."]):
+                return answer.strip()
+            # Otherwise, fallback to previous logic
             return answer.strip()
         # fallback: try to split by two newlines then take first paragraph
         parts = txt.split('\n\n')
@@ -326,6 +318,7 @@ If the context does NOT contain relevant information, respond exactly with:
 
         return matches
 
+
     def answer(self, question: str, speak: bool = True) -> str:
         # Retrieve context
         matches = self.retrieve(question)
@@ -339,23 +332,42 @@ If the context does NOT contain relevant information, respond exactly with:
                 pieces.append(f"[{i}] {m['text']}")
             context = "\n\n".join(pieces)
 
+        # For MCQ/quiz queries, always call external LLM and remove fallback phrase from prompt
+        if any(x in question.lower() for x in ["mcq", "quiz", "multiple choice"]):
+            # Remove fallback phrase from prompt for MCQ/quiz
+            prompt_template_mcq = self.prompt_template.replace(
+                '\nIf the context does NOT contain relevant information, respond exactly with:\n“The required information is not available in the internal knowledge base.”',
+                ''
+            )
+            prompt = prompt_template_mcq.format(context=context, question=question)
+            provider = os.getenv("EXTERNAL_LLM_PROVIDER", "openai").lower()
+            # Set high max tokens for MCQ/quiz
+            orig_max_tokens = os.getenv("OPENAI_MAX_TOKENS", "512")
+            os.environ["OPENAI_MAX_TOKENS"] = "1500"
+            orig_or_max_tokens = os.getenv("OPENROUTER_MAX_TOKENS", "512")
+            os.environ["OPENROUTER_MAX_TOKENS"] = "1500"
+            ext_resp = self._call_external(prompt)
+            os.environ["OPENAI_MAX_TOKENS"] = orig_max_tokens
+            os.environ["OPENROUTER_MAX_TOKENS"] = orig_or_max_tokens
+            if ext_resp:
+                if speak:
+                    self.speak(ext_resp)
+                return ext_resp
+
         prompt = self.prompt_template.format(context=context, question=question)
 
-        # External LLM decision logic
+        # External LLM decision logic (default)
         ext_provider = os.getenv("EXTERNAL_LLM_PROVIDER")
         ext_mode = os.getenv("EXTERNAL_MODE", "kb_then_external")
 
-        # If external provider is configured, decide based on mode
         if ext_provider:
             mode = ext_mode.lower()
-            # kb_then_external: only call external when context is empty
             if mode == "kb_then_external" and not context.strip():
                 ext_resp = self._call_external(f"QUESTION: {question}")
                 if ext_resp:
                     if speak:
                         self.speak(ext_resp)
                     return ext_resp
-            # combine_then_external or external_always: call external with the full prompt
             elif mode in ("combine_then_external", "external_always"):
                 ext_prompt = prompt
                 ext_resp = self._call_external(ext_prompt)
