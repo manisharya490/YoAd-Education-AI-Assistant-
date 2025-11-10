@@ -1,6 +1,6 @@
 
 
-# YoAd: Voice-Enabled RAG AI Assistant (Web & CLI)
+# YoAd (Your On-demand Academic Driver): Voice-Enabled RAG AI Assistant (Web & CLI)
 
 ## Demo Video
 
